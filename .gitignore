@@ -1,0 +1,7 @@
+Debug
+x64
+*.sdf
+*.suo
+/feature-detection/*.user
+*.user
+*.opensdf
