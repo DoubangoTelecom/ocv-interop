@@ -2,9 +2,9 @@
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	char escapeKey = '\0';
-
 	COMPV_CHECK_CODE_ASSERT(itp_init());
+
+	char escapeKey = '\0';
 
 	std::vector< KeyPoint > keypoints;
 	Mat frame;
@@ -21,7 +21,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	do {
 		cap >> frame;
-		cvtColor(frame, imageGray, CV_RGB2GRAY);
+		COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(frame, imageGray));
 
 		COMPV_CHECK_CODE_ASSERT(itp_detect(imageGray, detector, keypoints));
 		drawKeypoints(imageGray, keypoints, imageGray);

@@ -5,8 +5,6 @@
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	char escapeKey = '\0';
-
 	COMPV_CHECK_CODE_ASSERT(itp_init());
 
 	// Read images
@@ -19,8 +17,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	// Convert images to grayscale
 	Mat imageLeftGray;
 	Mat imageRightGray;
-	cvtColor(imageLeft, imageLeftGray, CV_RGB2GRAY);
-	cvtColor(imageRight, imageRightGray, CV_RGB2GRAY);
+	COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(imageLeft, imageLeftGray));
+	COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(imageRight, imageRightGray));
 	COMPV_ASSERT(imageLeftGray.data && imageRightGray.data);
 	
 	// Detect and describe keypoints
