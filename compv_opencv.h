@@ -135,8 +135,8 @@ using namespace std;
 #endif
 
 #if IMPL_DETECTOR == DECL_DETECTOR_ORB_COMPV
-#	define IMPL_DETECTOR_PTR	CompVPtr<CompVFeatureDete* >
-#	define IMPL_DESCRIPTOR_PTR	CompVPtr<CompVFeatureDesc* >
+#	define IMPL_DETECTOR_PTR	CompVPtr<CompVCornerDete* >
+#	define IMPL_DESCRIPTOR_PTR	CompVPtr<CompVCornerDesc* >
 #	define IMPL_MATCHER_PTR		CompVPtr<CompVMatcher* >
 #else
 #	define IMPL_DETECTOR_PTR	cv::Ptr<cv::FeatureDetector>
@@ -192,7 +192,7 @@ static COMPV_ERROR_CODE itp_createDetector(IMPL_DETECTOR_PTR& detector)
 	bool nms = IMPL_NMS;
 	int32_t fastThreshold = IMPL_FAST_THRESHOLD;
 	int nfeatures = IMPL_MAX_FEATURES;
-	COMPV_CHECK_CODE_RETURN(CompVFeatureDete::newObj(COMPV_ORB_ID, &detector));
+	COMPV_CHECK_CODE_RETURN(CompVCornerDete::newObj(COMPV_ORB_ID, &detector));
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_INT32_FAST_THRESHOLD, &fastThreshold, sizeof(fastThreshold)));
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_BOOL_FAST_NON_MAXIMA_SUPP, &nms, sizeof(nms)));
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_INT32_PYRAMID_LEVELS, &nlevels, sizeof(nlevels)));
@@ -229,7 +229,10 @@ static COMPV_ERROR_CODE itp_detect(const Mat& grayImage, IMPL_DETECTOR_PTR& dete
 	CompVPtr<CompVBoxInterestPoint* > interestPoints;
 	CompVPtr<CompVImage *> queryImage;
 	COMPV_CHECK_CODE_ASSERT(CompVImage::wrap(COMPV_PIXEL_FORMAT_GRAYSCALE, grayImage.ptr(0), grayImage.size().width, grayImage.size().height, grayImage.size().width, &queryImage));
+	//uint64_t time0 = CompVTime::getNowMills();
 	COMPV_CHECK_CODE_ASSERT(detector->process(queryImage, interestPoints));
+	//uint64_t time1 = CompVTime::getNowMills();
+	//COMPV_DEBUG_INFO("Detect time=%llu", (time1 - time0));
 	for (size_t i = 0; i < interestPoints->size(); ++i) {
 		const CompVInterestPoint* p = interestPoints->ptr(i);
 		keypoints.push_back(KeyPoint(p->x, p->y, p->size, (float)p->orient, (float)p->strength, p->level));
@@ -245,7 +248,7 @@ static COMPV_ERROR_CODE itp_detect(const Mat& grayImage, IMPL_DETECTOR_PTR& dete
 static COMPV_ERROR_CODE itp_createDescriptor(IMPL_DESCRIPTOR_PTR& descriptor, IMPL_DETECTOR_PTR detector = NULL)
 {
 #if IMPL_EXTRACTOR == DECL_EXTRACTOR_ORB_COMPV
-	COMPV_CHECK_CODE_RETURN(CompVFeatureDesc::newObj(COMPV_ORB_ID, &descriptor));
+	COMPV_CHECK_CODE_RETURN(CompVCornerDesc::newObj(COMPV_ORB_ID, &descriptor));
 #	if IMPL_DETECTOR == DECL_DETECTOR_ORB_COMPV
 	COMPV_CHECK_CODE_RETURN(descriptor->attachDete(detector)); // not required (done for performance reasons)
 #	endif
@@ -284,7 +287,10 @@ static COMPV_ERROR_CODE itp_describe(const Mat& grayImage, IMPL_DESCRIPTOR_PTR d
 			ip.strength = kp->response;
 			interestPoints->push(ip);
 		}
+		//uint64_t time0 = CompVTime::getNowMills();
 		COMPV_CHECK_CODE_RETURN(descriptor->process(queryImage, interestPoints, &descriptions));
+		//uint64_t time1 = CompVTime::getNowMills();
+		//COMPV_DEBUG_INFO("Describe time=%llu", (time1 - time0));
 		COMPV_ASSERT(descriptions->cols() == descriptions->strideInBytes()); // direct copy only if stride == width
 		if (descriptions && !descriptions->isEmpty()) {
 			imgDescriptor = Mat(Size((int)descriptions->cols(), (int)descriptions->rows()), (int)grayImage.type());
@@ -336,7 +342,10 @@ static COMPV_ERROR_CODE itp_match(IMPL_MATCHER_PTR matcher, const Mat& queryDesc
 	COMPV_CHECK_CODE_RETURN(CompVArray<uint8_t>::newObjStrideless(&trainDescriptors_, (size_t)trainDescriptors.rows, (size_t)trainDescriptors.cols));
 	CompVMem::copy((void*)queryDescriptors_->ptr(), queryDescriptors.ptr(0), (queryDescriptors.cols * queryDescriptors.rows));
 	CompVMem::copy((void*)trainDescriptors_->ptr(), trainDescriptors.ptr(0), (trainDescriptors.cols * trainDescriptors.rows));
+	uint64_t time0 = CompVTime::getNowMills();
 	COMPV_CHECK_CODE_RETURN(matcher->process(trainDescriptors_, queryDescriptors_, &matches_));
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("matcher :%llu millis", (time1 - time0));
 #endif
 
 #if IMPL_KNN > 1
@@ -421,10 +430,7 @@ static COMPV_ERROR_CODE itp_arrayToMat(const CompVPtrArray(U)& array, Mat& mat)
 static COMPV_ERROR_CODE itp_homography(const vector<Point2f>& srcPoints, const vector<Point2f>& dstPoints, Mat &H)
 {
 #if IMPL_HOMOGRAPHY == DECL_HOMOGRAPHY_OPENCV
-	uint64_t time0 = CompVTime::getNowMills();
 	H = findHomography(srcPoints, dstPoints, CV_RANSAC);
-	uint64_t time1 = CompVTime::getNowMills();
-	COMPV_DEBUG_INFO("findHomography :%llu millis", (time1 - time0));
 #else
 	// Homography 'double' is faster because EigenValues/EigenVectors computation converge faster (less residual error)
 	COMPV_ASSERT(srcPoints.size() == dstPoints.size());
@@ -460,5 +466,22 @@ static COMPV_ERROR_CODE itp_perspectiveTransform(const vector<Point2f>& src, vec
 		dst.push_back(Point2f((float)X[i], (float)Y[i]));
 	}
 #endif
+	return COMPV_ERROR_CODE_S_OK;
+}
+
+static COMPV_ERROR_CODE itp_sobel(const Mat& in, Mat& grad)
+{
+	CompVPtr<CompVEdgeDete* > dete;
+	CompVPtr<CompVImage *> image;
+	CompVPtrArray(uint8_t) egdes;
+
+	COMPV_CHECK_CODE_RETURN(CompVImage::wrap(COMPV_PIXEL_FORMAT_GRAYSCALE, in.ptr(0), in.size().width, in.size().height, in.size().width, &image));
+	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(COMPV_SOBEL_ID, &dete));
+	COMPV_CHECK_CODE_RETURN(dete->process(image, egdes));
+
+	grad = Mat(Size((int)egdes->cols(), (int)egdes->rows()), CV_8U);
+	for (int j = 0; j < egdes->rows(); ++j) {
+		CompVMem::copy(grad.ptr(j), egdes->ptr(j), egdes->rowInBytes());
+	}
 	return COMPV_ERROR_CODE_S_OK;
 }
