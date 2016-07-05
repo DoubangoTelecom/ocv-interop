@@ -17,6 +17,11 @@ using namespace cv;
 using namespace compv;
 using namespace std;
 
+struct cannyThresholds {
+	float low;
+	float high;
+};
+
 /* ===================================================================== */
 #define DECL_DETECTOR_FAST			0
 #define DECL_DETECTOR_STAR			1
@@ -46,6 +51,9 @@ using namespace std;
 #define DECL_MATCHER_BRUTE_FORCE_HAMMING2		2 // ORB WTA_K = 3 or 4, outputs on 2bits=0/1/2/3
 #define DECL_MATCHER_FLANN						3
 #define DECL_MATCHER_BRUTE_FORCE_COMPV			4
+
+#define DECL_CANNY_COMPV		0
+#define DECL_CANNY_OPENCV		1
 
 #define DECL_IMGCONV_COMPV		0
 #define DECL_IMGCONV_OPENCV		1
@@ -103,6 +111,7 @@ using namespace std;
 #	define IMPL_MATCHER			DECL_MATCHER_BRUTE_FORCE_HAMMING
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_OPENCV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_OPENCV
+#	define IMPL_CANNY			DECL_CANNY_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #elif IMPL_PRESET == DECL_PRESET_COMPV
 #	define IMPL_DETECTOR		DECL_DETECTOR_ORB_COMPV
@@ -110,6 +119,7 @@ using namespace std;
 #	define IMPL_MATCHER			DECL_MATCHER_BRUTE_FORCE_COMPV
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_COMPV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_COMPV
+#	define IMPL_CANNY			DECL_CANNY_COMPV
 #	define IMPL_IMGCONV			DECL_IMGCONV_COMPV //!\ CompV image wrapping and copying is very slow...but compv impl. outputs better quality than opencv
 #elif IMPL_PRESET == DECL_PRESET_SURF
 #	define IMPL_DETECTOR		DECL_DETECTOR_SURF
@@ -117,6 +127,7 @@ using namespace std;
 #	define IMPL_MATCHER			DECL_MATCHER_BRUTE_FORCE
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_OPENCV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_OPENCV
+#	define IMPL_CANNY			DECL_CANNY_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #elif IMPL_PRESET == DECL_PRESET_SIFT
 #	define IMPL_DETECTOR		DECL_DETECTOR_SIFT
@@ -124,6 +135,7 @@ using namespace std;
 #	define IMPL_MATCHER			DECL_MATCHER_BRUTE_FORCE
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_OPENCV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_OPENCV
+#	define IMPL_CANNY			DECL_CANNY_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #else // NONE
 #	define IMPL_DETECTOR		DECL_DETECTOR_ORB_COMPV
@@ -131,17 +143,31 @@ using namespace std;
 #	define IMPL_MATCHER			DECL_MATCHER_BRUTE_FORCE_COMPV
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_COMPV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_COMPV
+#	define IMPL_CANNY			DECL_CANNY_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #endif
 
+
+
 #if IMPL_DETECTOR == DECL_DETECTOR_ORB_COMPV
 #	define IMPL_DETECTOR_PTR	CompVPtr<CompVCornerDete* >
-#	define IMPL_DESCRIPTOR_PTR	CompVPtr<CompVCornerDesc* >
-#	define IMPL_MATCHER_PTR		CompVPtr<CompVMatcher* >
 #else
 #	define IMPL_DETECTOR_PTR	cv::Ptr<cv::FeatureDetector>
+#endif
+#if IMPL_EXTRACTOR == DECL_EXTRACTOR_ORB_COMPV
+#	define IMPL_DESCRIPTOR_PTR	CompVPtr<CompVCornerDesc* >
+#else
 #	define IMPL_DESCRIPTOR_PTR	cv::Ptr<cv::DescriptorExtractor>
+#endif
+#if IMPL_MATCHER == DECL_MATCHER_BRUTE_FORCE_COMPV
+#	define IMPL_MATCHER_PTR		CompVPtr<CompVMatcher* >
+#else
 #	define IMPL_MATCHER_PTR		cv::Ptr<cv::DescriptorMatcher>
+#endif
+#if IMPL_CANNY == DECL_CANNY_COMPV
+#	define IMPL_CANNY_PTR		CompVPtr<CompVEdgeDete* >
+#else
+#	define IMPL_CANNY_PTR		cannyThresholds
 #endif
 
 #if IMPL_EXTRACTOR == DECL_EXTRACTOR_SURF || IMPL_EXTRACTOR == DECL_EXTRACTOR_SIFT
@@ -469,6 +495,37 @@ static COMPV_ERROR_CODE itp_perspectiveTransform(const vector<Point2f>& src, vec
 	return COMPV_ERROR_CODE_S_OK;
 }
 
+static COMPV_ERROR_CODE itp_createCanny(IMPL_CANNY_PTR& canny, float tLow = 0.68f, float tHigh = 0.68*2.f)
+{
+#if IMPL_CANNY == DECL_CANNY_COMPV
+	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(COMPV_CANNY_ID, &canny));
+	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_FLOAT_THRESHOLD_LOW, &tLow, sizeof(tLow)));
+	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_FLOAT_THRESHOLD_HIGH, &tHigh, sizeof(tHigh)));
+#else
+	canny.low = tLow;
+	canny.high = tHigh;
+#endif
+	return COMPV_ERROR_CODE_S_OK;
+}
+
+static COMPV_ERROR_CODE itp_canny(IMPL_CANNY_PTR& canny, const Mat& grayscale, Mat& grad)
+{
+#if IMPL_CANNY == DECL_CANNY_COMPV
+	CompVPtr<CompVImage *> image;
+	CompVPtrArray(uint8_t) egdes;
+	COMPV_CHECK_CODE_RETURN(CompVImage::wrap(COMPV_PIXEL_FORMAT_GRAYSCALE, grayscale.ptr(0), grayscale.size().width, grayscale.size().height, grayscale.size().width, &image));
+	COMPV_CHECK_CODE_RETURN(canny->process(image, egdes));
+	grad = Mat(Size((int)egdes->cols(), (int)egdes->rows()), CV_8U);
+	for (int j = 0; j < egdes->rows(); ++j) {
+		CompVMem::copy(grad.ptr(j), egdes->ptr(j), egdes->rowInBytes());
+	}
+#else
+	cv::Scalar mean = cv::mean(grayscale);
+	cv::Canny(grayscale, grad, canny.low*mean.val[0], canny.high*mean.val[0]);
+#endif
+	return COMPV_ERROR_CODE_S_OK;
+}
+
 static COMPV_ERROR_CODE itp_edges(const Mat& in, Mat& grad, int id = COMPV_SOBEL_ID)
 {
 	CompVPtr<CompVEdgeDete* > dete;
@@ -486,6 +543,9 @@ static COMPV_ERROR_CODE itp_edges(const Mat& in, Mat& grad, int id = COMPV_SOBEL
 	return COMPV_ERROR_CODE_S_OK;
 }
 static COMPV_ERROR_CODE itp_sobel(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_SOBEL_ID); }
-static COMPV_ERROR_CODE itp_canny(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_CANNY_ID); }
 static COMPV_ERROR_CODE itp_prewitt(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_PREWITT_ID); }
 static COMPV_ERROR_CODE itp_scharr(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_SCHARR_ID); }
+static COMPV_ERROR_CODE itp_canny(const Mat& in, Mat& grad, float tLow = 0.66f, float tHigh = 0.66f*2)
+{ 
+	return itp_edges(in, grad, COMPV_CANNY_ID);
+}
