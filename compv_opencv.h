@@ -110,7 +110,7 @@ using namespace std;
 #	define IMPL_MATCHER			DECL_MATCHER_BRUTE_FORCE_COMPV
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_COMPV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_COMPV
-#	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV //!\ CompV image wrapping and copying is very slow
+#	define IMPL_IMGCONV			DECL_IMGCONV_COMPV //!\ CompV image wrapping and copying is very slow...but compv impl. outputs better quality than opencv
 #elif IMPL_PRESET == DECL_PRESET_SURF
 #	define IMPL_DETECTOR		DECL_DETECTOR_SURF
 #	define IMPL_EXTRACTOR		DECL_EXTRACTOR_SURF
@@ -469,14 +469,14 @@ static COMPV_ERROR_CODE itp_perspectiveTransform(const vector<Point2f>& src, vec
 	return COMPV_ERROR_CODE_S_OK;
 }
 
-static COMPV_ERROR_CODE itp_sobel(const Mat& in, Mat& grad)
+static COMPV_ERROR_CODE itp_edges(const Mat& in, Mat& grad, int id = COMPV_SOBEL_ID)
 {
 	CompVPtr<CompVEdgeDete* > dete;
 	CompVPtr<CompVImage *> image;
 	CompVPtrArray(uint8_t) egdes;
 
 	COMPV_CHECK_CODE_RETURN(CompVImage::wrap(COMPV_PIXEL_FORMAT_GRAYSCALE, in.ptr(0), in.size().width, in.size().height, in.size().width, &image));
-	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(COMPV_SOBEL_ID, &dete));
+	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(id, &dete));
 	COMPV_CHECK_CODE_RETURN(dete->process(image, egdes));
 
 	grad = Mat(Size((int)egdes->cols(), (int)egdes->rows()), CV_8U);
@@ -485,3 +485,7 @@ static COMPV_ERROR_CODE itp_sobel(const Mat& in, Mat& grad)
 	}
 	return COMPV_ERROR_CODE_S_OK;
 }
+static COMPV_ERROR_CODE itp_sobel(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_SOBEL_ID); }
+static COMPV_ERROR_CODE itp_canny(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_CANNY_ID); }
+static COMPV_ERROR_CODE itp_prewitt(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_PREWITT_ID); }
+static COMPV_ERROR_CODE itp_scharr(const Mat& in, Mat& grad) { return itp_edges(in, grad, COMPV_SCHARR_ID); }
