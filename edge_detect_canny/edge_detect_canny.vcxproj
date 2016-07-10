@@ -151,6 +151,9 @@
   <ItemGroup>
     <ClCompile Include="edge_detect_canny.cxx" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\compv_opencv.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

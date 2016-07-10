@@ -20,6 +20,7 @@ using namespace std;
 struct cannyThresholds {
 	float low;
 	float high;
+	int32_t kernelSize;
 };
 
 /* ===================================================================== */
@@ -196,12 +197,12 @@ static COMPV_ERROR_CODE itp_init()
 /* itp_createDetector() */
 static COMPV_ERROR_CODE itp_imageBgrToGrayscale(const Mat& in, Mat& out)
 {
-#if IMPL_IMGCONV == DECL_IMGCONV_COMPV
+#if IMPL_IMGCONV == DECL_IMGCONV_COMPV // TODO(dmi): Strange: canny slow when using this code (not the case on the MacBookPro)
 	// The wrapping and copy is very slow....
 	CompVPtr<CompVImage *> img_;
+	out = Mat(in.size(), CV_8U);
 	COMPV_CHECK_CODE_RETURN(CompVImage::wrap(COMPV_PIXEL_FORMAT_B8G8R8, in.ptr(0), in.size().width, in.size().height, in.size().width, &img_));
 	COMPV_CHECK_CODE_RETURN(img_->convert(COMPV_PIXEL_FORMAT_GRAYSCALE, &img_));
-	out = Mat(in.size(), CV_8U);	
 	COMPV_CHECK_CODE_RETURN(CompVImage::copy(COMPV_PIXEL_FORMAT_GRAYSCALE, img_->getDataPtr(), img_->getWidth(), img_->getHeight(), img_->getStride(), out.ptr(0), out.size().width, out.size().height, out.size().width));
 #else
 	cvtColor(in, out, CV_BGR2GRAY);
@@ -495,15 +496,17 @@ static COMPV_ERROR_CODE itp_perspectiveTransform(const vector<Point2f>& src, vec
 	return COMPV_ERROR_CODE_S_OK;
 }
 
-static COMPV_ERROR_CODE itp_createCanny(IMPL_CANNY_PTR& canny, float tLow = 0.68f, float tHigh = 0.68*2.f)
+static COMPV_ERROR_CODE itp_createCanny(IMPL_CANNY_PTR& canny, float tLow = 0.68f, float tHigh = 0.68*2.f, int32_t kernelSize = 3)
 {
 #if IMPL_CANNY == DECL_CANNY_COMPV
 	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(COMPV_CANNY_ID, &canny));
 	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_FLOAT_THRESHOLD_LOW, &tLow, sizeof(tLow)));
 	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_FLOAT_THRESHOLD_HIGH, &tHigh, sizeof(tHigh)));
+	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_INT32_KERNEL_SIZE, &kernelSize, sizeof(kernelSize)));
 #else
 	canny.low = tLow;
 	canny.high = tHigh;
+	canny.kernelSize = kernelSize;
 #endif
 	return COMPV_ERROR_CODE_S_OK;
 }
@@ -514,14 +517,17 @@ static COMPV_ERROR_CODE itp_canny(IMPL_CANNY_PTR& canny, const Mat& grayscale, M
 	CompVPtr<CompVImage *> image;
 	CompVPtrArray(uint8_t) egdes;
 	COMPV_CHECK_CODE_RETURN(CompVImage::wrap(COMPV_PIXEL_FORMAT_GRAYSCALE, grayscale.ptr(0), grayscale.size().width, grayscale.size().height, grayscale.size().width, &image));
+	uint64_t time0 = CompVTime::getNowMills();
 	COMPV_CHECK_CODE_RETURN(canny->process(image, egdes));
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("Canny time: %llu", (time1 - time0));
 	grad = Mat(Size((int)egdes->cols(), (int)egdes->rows()), CV_8U);
 	for (int j = 0; j < egdes->rows(); ++j) {
 		CompVMem::copy(grad.ptr(j), egdes->ptr(j), egdes->rowInBytes());
 	}
 #else
 	cv::Scalar mean = cv::mean(grayscale);
-	cv::Canny(grayscale, grad, canny.low*mean.val[0], canny.high*mean.val[0]);
+	cv::Canny(grayscale, grad, canny.low*mean.val[0], canny.high*mean.val[0], canny.kernelSize);
 #endif
 	return COMPV_ERROR_CODE_S_OK;
 }
