@@ -87,7 +87,7 @@ struct cannyThresholds {
 #define IMPL_FAST_THRESHOLD				20
 #define IMPL_MIN_HESS					400
 
-#define IMPL_NUM_THREADS			COMPV_NUM_THREADS_BEST
+#define IMPL_NUM_THREADS			7//COMPV_NUM_THREADS_BEST
 #define IMPL_ENABLE_INTRINSICS		true
 #define IMPL_ENABLE_ASM				true
 #define IMPL_ENABLE_FIXED_POINT		true
@@ -520,14 +520,17 @@ static COMPV_ERROR_CODE itp_canny(IMPL_CANNY_PTR& canny, const Mat& grayscale, M
 	uint64_t time0 = CompVTime::getNowMills();
 	COMPV_CHECK_CODE_RETURN(canny->process(image, egdes));
 	uint64_t time1 = CompVTime::getNowMills();
-	COMPV_DEBUG_INFO("Canny time: %llu", (time1 - time0));
+	COMPV_DEBUG_INFO("Canny time(CompV): %llu", (time1 - time0));
 	grad = Mat(Size((int)egdes->cols(), (int)egdes->rows()), CV_8U);
 	for (int j = 0; j < egdes->rows(); ++j) {
 		CompVMem::copy(grad.ptr(j), egdes->ptr(j), egdes->rowInBytes());
 	}
 #else
+	uint64_t time0 = CompVTime::getNowMills();
 	cv::Scalar mean = cv::mean(grayscale);
 	cv::Canny(grayscale, grad, canny.low*mean.val[0], canny.high*mean.val[0], canny.kernelSize);
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("Canny time(OpenCV): %llu", (time1 - time0));
 #endif
 	return COMPV_ERROR_CODE_S_OK;
 }

@@ -1,6 +1,6 @@
 #include "../compv_opencv.h"
 
-#define CANNY_LOW			0.68f
+#define CANNY_LOW			0.8f
 #define CANNY_HIGH			CANNY_LOW*2.f
 #define CANNY_KERNEL_SIZE	3
 
@@ -26,7 +26,11 @@ int _tmain(int argc, _TCHAR* argv[])
 		//frame = imread("C:/Projects/GitHub/compv/tests/girl.jpg"); // line_hz.jpg // girl.jpg // circle.jpg // lena
 		//GaussianBlur(frame, frame, Size(3, 3), 0, 0, BORDER_DEFAULT);
 
+#if 0 // Canny is slow when next code is used. Strange because there is no relation.
 		COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(frame, src_gray));
+#else
+		cvtColor(frame, src_gray, CV_BGR2GRAY);
+#endif
 		
 		//uint64_t time0 = CompVTime::getNowMills();
 		COMPV_CHECK_CODE_ASSERT(itp_canny(canny, src_gray, grad));
