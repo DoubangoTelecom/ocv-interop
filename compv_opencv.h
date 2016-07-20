@@ -499,10 +499,7 @@ static COMPV_ERROR_CODE itp_perspectiveTransform(const vector<Point2f>& src, vec
 static COMPV_ERROR_CODE itp_createCanny(IMPL_CANNY_PTR& canny, float tLow = 0.68f, float tHigh = 0.68*2.f, int32_t kernelSize = 3)
 {
 #if IMPL_CANNY == DECL_CANNY_COMPV
-	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(COMPV_CANNY_ID, &canny));
-	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_FLOAT_THRESHOLD_LOW, &tLow, sizeof(tLow)));
-	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_FLOAT_THRESHOLD_HIGH, &tHigh, sizeof(tHigh)));
-	COMPV_CHECK_CODE_RETURN(canny->set(COMPV_CANNY_SET_INT32_KERNEL_SIZE, &kernelSize, sizeof(kernelSize)));
+	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(COMPV_CANNY_ID, &canny, tLow, tHigh, kernelSize));
 #else
 	canny.low = tLow;
 	canny.high = tHigh;
