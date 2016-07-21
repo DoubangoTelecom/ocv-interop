@@ -23,6 +23,12 @@ struct cannyThresholds {
 	int32_t kernelSize;
 };
 
+struct houghStd {
+	float rho;
+	float theta;
+	int32_t threshold;
+};
+
 /* ===================================================================== */
 #define DECL_DETECTOR_FAST			0
 #define DECL_DETECTOR_STAR			1
@@ -55,6 +61,9 @@ struct cannyThresholds {
 
 #define DECL_CANNY_COMPV		0
 #define DECL_CANNY_OPENCV		1
+
+#define DECL_HOUGHSTD_COMPV		0
+#define DECL_HOUGHSTD_OPENCV	1
 
 #define DECL_IMGCONV_COMPV		0
 #define DECL_IMGCONV_OPENCV		1
@@ -113,6 +122,7 @@ struct cannyThresholds {
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_OPENCV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_OPENCV
 #	define IMPL_CANNY			DECL_CANNY_OPENCV
+#	define IMPL_HOUGHSTD		DECL_HOUGHSTD_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #elif IMPL_PRESET == DECL_PRESET_COMPV
 #	define IMPL_DETECTOR		DECL_DETECTOR_ORB_COMPV
@@ -121,6 +131,7 @@ struct cannyThresholds {
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_COMPV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_COMPV
 #	define IMPL_CANNY			DECL_CANNY_COMPV
+#	define IMPL_HOUGHSTD		DECL_HOUGHSTD_COMPV
 #	define IMPL_IMGCONV			DECL_IMGCONV_COMPV //!\ CompV image wrapping and copying is very slow...but compv impl. outputs better quality than opencv
 #elif IMPL_PRESET == DECL_PRESET_SURF
 #	define IMPL_DETECTOR		DECL_DETECTOR_SURF
@@ -129,6 +140,7 @@ struct cannyThresholds {
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_OPENCV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_OPENCV
 #	define IMPL_CANNY			DECL_CANNY_OPENCV
+#	define IMPL_HOUGHSTD		DECL_HOUGHSTD_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #elif IMPL_PRESET == DECL_PRESET_SIFT
 #	define IMPL_DETECTOR		DECL_DETECTOR_SIFT
@@ -137,6 +149,7 @@ struct cannyThresholds {
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_OPENCV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_OPENCV
 #	define IMPL_CANNY			DECL_CANNY_OPENCV
+#	define IMPL_HOUGHSTD		DECL_HOUGHSTD_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #else // NONE
 #	define IMPL_DETECTOR		DECL_DETECTOR_ORB_COMPV
@@ -145,6 +158,7 @@ struct cannyThresholds {
 #	define IMPL_HOMOGRAPHY		DECL_HOMOGRAPHY_COMPV
 #	define IMPL_PERSPTRANSFORM	DECL_PERSPTRANSFORM_COMPV
 #	define IMPL_CANNY			DECL_CANNY_OPENCV
+#	define IMPL_HOUGHSTD		DECL_HOUGHSTD_OPENCV
 #	define IMPL_IMGCONV			DECL_IMGCONV_OPENCV
 #endif
 
@@ -169,6 +183,11 @@ struct cannyThresholds {
 #	define IMPL_CANNY_PTR		CompVPtr<CompVEdgeDete* >
 #else
 #	define IMPL_CANNY_PTR		cannyThresholds
+#endif
+#if IMPL_HOUGHSTD == DECL_HOUGHSTD_COMPV
+#	define IMPL_HOUGHSTD_PTR	CompVPtr<CompVHough* >
+#else
+#	define IMPL_HOUGHSTD_PTR	houghStd
 #endif
 
 #if IMPL_EXTRACTOR == DECL_EXTRACTOR_SURF || IMPL_EXTRACTOR == DECL_EXTRACTOR_SIFT
@@ -554,4 +573,43 @@ static COMPV_ERROR_CODE itp_scharr(const Mat& in, Mat& grad) { return itp_edges(
 static COMPV_ERROR_CODE itp_canny(const Mat& in, Mat& grad, float tLow = 0.66f, float tHigh = 0.66f*2)
 { 
 	return itp_edges(in, grad, COMPV_CANNY_ID);
+}
+
+static COMPV_ERROR_CODE itp_createHoughStd(IMPL_HOUGHSTD_PTR& houghStd, double rho = 1.f, double theta = kfMathTrigPiOver180, int threshold = 1)
+{
+#if IMPL_HOUGHSTD == DECL_HOUGHSTD_COMPV
+	COMPV_CHECK_CODE_RETURN(CompVHough::newObj(COMPV_HOUGH_STANDARD_ID, &houghStd, (float)rho, (float)theta, (int32_t)threshold));
+#else
+	houghStd.rho = rho;
+	houghStd.theta = theta;
+	houghStd.threshold = threshold;
+#endif
+	return COMPV_ERROR_CODE_S_OK;
+}
+
+static COMPV_ERROR_CODE itp_houghStdLines(IMPL_HOUGHSTD_PTR& houghStd, const Mat& in, vector<Vec2f>& lines)
+{
+	lines.clear();
+#if IMPL_HOUGHSTD == DECL_HOUGHSTD_COMPV
+	CompVPtrArray(CompVCoordPolar2f) coords;
+	CompVPtrArray(uint8_t) in_;
+	COMPV_CHECK_CODE_RETURN((itp_matToArrayAligned<CV_8U, uint8_t>(in, in_)));
+	uint64_t time0 = CompVTime::getNowMills();
+	COMPV_CHECK_CODE_RETURN(houghStd->process(in_, coords));
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("HoughLines time(CompV): %llu", (time1 - time0));
+	if (coords && !coords->isEmpty()) {
+		const CompVCoordPolar2f* coord = coords->ptr();
+		const size_t count = coords->cols();
+		for (size_t i = 0; i < count; ++i) {
+			lines.push_back(Vec2f(coord[i].rho, coord[i].theta));
+		}
+	}
+#else
+	uint64_t time0 = CompVTime::getNowMills();
+	HoughLines(in, lines, houghStd.rho, houghStd.theta, houghStd.threshold);
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("HoughLines time(OpenCV): %llu", (time1 - time0));
+#endif
+	return COMPV_ERROR_CODE_S_OK;
 }

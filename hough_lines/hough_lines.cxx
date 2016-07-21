@@ -3,12 +3,16 @@
 #define CANNY_LOW			1.8f
 #define CANNY_HIGH			CANNY_LOW*2.f
 #define CANNY_KERNEL_SIZE	3
+#define HOUGH_RHO			1.f
+#define HOUGH_THETA			kfMathTrigPiOver180 // 1rad
+#define HOUGH_THRESHOLD		100
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 	COMPV_CHECK_CODE_ASSERT(itp_init());
 
 	IMPL_CANNY_PTR canny;
+	IMPL_HOUGHSTD_PTR houghStd;
 	Mat src;
 	Mat src_gray;
 	Mat grad;
@@ -16,6 +20,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	uint64_t time0, time1;
 
 	COMPV_CHECK_CODE_ASSERT(itp_createCanny(canny, CANNY_LOW, CANNY_HIGH, CANNY_KERNEL_SIZE));
+	COMPV_CHECK_CODE_ASSERT(itp_createHoughStd(houghStd, HOUGH_RHO, HOUGH_THETA, HOUGH_THRESHOLD));
 
 	cv::VideoCapture cap(IMPL_CAMERA_ID);
 	cap.set(CV_CAP_PROP_FPS, IMPL_CAMERA_FRAME_RATE);
@@ -25,8 +30,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	do {
 		//cap >> src;
-		src = imread("C:/Projects/GitHub/compv/tests/line_hz.jpg"); // line_hz.jpg // girl.jpg // circle.jpg // lena // building
-		//GaussianBlur(frame, frame, Size(3, 3), 0, 0, BORDER_DEFAULT);
+		// "C:/Projects/GitHub/compv/tests/equirectangular.jpg" // line_hz.jpg // girl.jpg // circle.jpg // lena // building // equirectangular
+		src = imread("C:/Projects/GitHub/compv/tests/building.jpg"); // line_hz.jpg // girl.jpg // circle.jpg // lena // building // equirectangular
 
 #if 0 // Canny is slow when next code is used. Strange because there is no relation.
 		COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(frame, src_gray));
@@ -45,14 +50,11 @@ int _tmain(int argc, _TCHAR* argv[])
 		cvtColor(grad, hough, CV_GRAY2BGR);
 		for (size_t i = 0; i < lines.size(); i++) {
 			line(hough, Point(lines[i][0], lines[i][1]),
-				Point(lines[i][2], lines[i][3]), Scalar(0, 0, 255), 1, 8);
+				Point(lines[i][2], lines[i][3]), Scalar(0, 0, 255), 1, CV_AA);
 		}
 #else
 		vector<Vec2f> lines;
-		time0 = CompVTime::getNowMills();
-		HoughLines(grad, lines, 1, CV_PI / 180, 100);
-		time1 = CompVTime::getNowMills();
-		COMPV_DEBUG_INFO("HoughLines time: %llu", (time1 - time0));
+		COMPV_CHECK_CODE_ASSERT(itp_houghStdLines(houghStd, grad, lines));
 		cvtColor(grad, hough, CV_GRAY2BGR);
 		for (size_t i = 0; i < lines.size(); i++) {
 			float rho = lines[i][0];
@@ -61,7 +63,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			double x0 = a*rho, y0 = b*rho;
 			Point pt1(cvRound(x0 + 1000 * (-b)), cvRound(y0 + 1000 * (a)));
 			Point pt2(cvRound(x0 - 1000 * (-b)), cvRound(y0 - 1000 * (a)));
-			line(hough, pt1, pt2, Scalar(0, 0, 255), 1, 8);
+			line(hough, pt1, pt2, Scalar(0, 0, 255), 1, CV_AA);
 		}
 #endif
 		imshow("Input", src);
