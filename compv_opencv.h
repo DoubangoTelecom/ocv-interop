@@ -96,7 +96,7 @@ struct houghStd {
 #define IMPL_FAST_THRESHOLD				20
 #define IMPL_MIN_HESS					400
 
-#define IMPL_NUM_THREADS			7//COMPV_NUM_THREADS_BEST
+#define IMPL_NUM_THREADS			COMPV_NUM_THREADS_BEST
 #define IMPL_ENABLE_INTRINSICS		true
 #define IMPL_ENABLE_ASM				true
 #define IMPL_ENABLE_FIXED_POINT		true
@@ -242,7 +242,7 @@ static COMPV_ERROR_CODE itp_createDetector(IMPL_DETECTOR_PTR& detector)
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_INT32_FAST_THRESHOLD, &fastThreshold, sizeof(fastThreshold)));
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_BOOL_FAST_NON_MAXIMA_SUPP, &nms, sizeof(nms)));
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_INT32_PYRAMID_LEVELS, &nlevels, sizeof(nlevels)));
-	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_FLOAT_PYRAMID_SCALE_FACTOR, &scaleFactor, sizeof(scaleFactor)));
+	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_FLT32_PYRAMID_SCALE_FACTOR, &scaleFactor, sizeof(scaleFactor)));
 	COMPV_CHECK_CODE_RETURN(detector->set(COMPV_ORB_SET_INT32_MAX_FEATURES, &nfeatures, sizeof(nfeatures)));
 #elif IMPL_DETECTOR == DECL_DETECTOR_ORB
 	int nfeatures = IMPL_MAX_FEATURES; // default: 500
@@ -591,7 +591,7 @@ static COMPV_ERROR_CODE itp_houghStdLines(IMPL_HOUGHSTD_PTR& houghStd, const Mat
 {
 	lines.clear();
 #if IMPL_HOUGHSTD == DECL_HOUGHSTD_COMPV
-	CompVPtrArray(CompVCoordPolar2f) coords;
+	CompVPtrArray(compv_float32x2_t) coords;
 	CompVPtrArray(uint8_t) in_;
 	COMPV_CHECK_CODE_RETURN((itp_matToArrayAligned<CV_8U, uint8_t>(in, in_)));
 	uint64_t time0 = CompVTime::getNowMills();
@@ -599,10 +599,10 @@ static COMPV_ERROR_CODE itp_houghStdLines(IMPL_HOUGHSTD_PTR& houghStd, const Mat
 	uint64_t time1 = CompVTime::getNowMills();
 	COMPV_DEBUG_INFO("HoughLines time(CompV): %llu", (time1 - time0));
 	if (coords && !coords->isEmpty()) {
-		const CompVCoordPolar2f* coord = coords->ptr();
+		const compv_float32x2_t* coord = coords->ptr();
 		const size_t count = coords->cols();
 		for (size_t i = 0; i < count; ++i) {
-			lines.push_back(Vec2f(coord[i].rho, coord[i].theta));
+			lines.push_back(Vec2f(coord[i][0], coord[i][1]));
 		}
 	}
 #else

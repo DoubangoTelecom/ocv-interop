@@ -6,3 +6,4 @@ x64
 *.user
 *.opensdf
 My Amplifier XE Results - edge_detect_canny
+/hough_lines/My Amplifier XE Results - hough_lines

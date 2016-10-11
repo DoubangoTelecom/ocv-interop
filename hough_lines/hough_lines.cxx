@@ -29,12 +29,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	COMPV_ASSERT(cap.isOpened());
 
 	do {
-		//cap >> src;
+		cap >> src;
 		// "C:/Projects/GitHub/compv/tests/equirectangular.jpg" // line_hz.jpg // girl.jpg // circle.jpg // lena // building // equirectangular
-		src = imread("C:/Projects/GitHub/compv/tests/building.jpg"); // line_hz.jpg // girl.jpg // circle.jpg // lena // building // equirectangular
+		//src = imread("C:/Projects/GitHub/compv/tests/building.jpg"); // line_hz.jpg // girl.jpg // circle.jpg // lena // building // equirectangular
 
 #if 0 // Canny is slow when next code is used. Strange because there is no relation.
-		COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(frame, src_gray));
+		COMPV_CHECK_CODE_ASSERT(itp_imageBgrToGrayscale(src, src_gray));
 #else
 		cvtColor(src, src_gray, CV_BGR2GRAY);
 #endif
