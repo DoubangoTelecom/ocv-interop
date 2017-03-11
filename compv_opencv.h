@@ -81,7 +81,7 @@ struct houghStd {
 /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 
 #define IMPL_TYPE			DECL_TYPE_DOUBLE
-#define IMPL_PRESET			DECL_PRESET_COMPV
+#define IMPL_PRESET			DECL_PRESET_ORB
 
 #define IMPL_CAMERA_ID					0
 #define IMPL_CAMERA_FRAME_RATE			30
@@ -89,7 +89,7 @@ struct houghStd {
 #define IMPL_CAMERA_FRAME_HEIGHT		720 // 1080
 
 #define IMPL_PYRAMID_LEVELS				8
-#define IMPL_MAX_FEATURES				2000 // 2000 // default is 500 but this dosen't provide good result (OpenCV default value: 500) - 500 is OK for image stitching
+#define IMPL_MAX_FEATURES				1000 // 2000 // default is 500 but this dosen't provide good result (OpenCV default value: 500) - 500 is OK for image stitching
 #define IMPL_CROSS_CHECK				true // must be true only when (KNN == 1)
 #define IMPL_KNN						2
 #define IMPL_NMS						true
@@ -251,7 +251,7 @@ static COMPV_ERROR_CODE itp_createDetector(IMPL_DETECTOR_PTR& detector)
 	int edgeThreshold = 31;
 	int firstLevel = 0;
 	int WTA_K = 2; // Number of points to compare (Hamming1 for WTA_K=2, and Hamming2 for WTA_K=3 or 4)
-	int scoreType = ORB::FAST_SCORE; // ORB::FAST_SCORE, default: ORB::HARRIS_SCORE;
+	int scoreType = ORB::HARRIS_SCORE; // ORB::FAST_SCORE, default: ORB::HARRIS_SCORE;
 	int patchSize = 31;
 	detector = new cv::OrbFeatureDetector(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, scoreType, patchSize);
 #elif IMPL_DETECTOR == DECL_DETECTOR_SURF
@@ -409,7 +409,10 @@ static COMPV_ERROR_CODE itp_match(IMPL_MATCHER_PTR matcher, const Mat& queryDesc
 	}
 #	else
 	vector<vector<DMatch> > matches;
+	uint64_t time0 = CompVTime::getNowMills();
 	matcher->knnMatch(trainDescriptors, queryDescriptors, matches, IMPL_KNN);
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("matcher :%llu millis", (time1 - time0));
 	for (int i = 0; i < min(queryDescriptors.rows - 1, (int)matches.size()); i++) {
 		if ((matches[i][0].distance < ratioTestKNN*(matches[i][1].distance))) {
 			good_matches.push_back(matches[i][0]);
@@ -476,7 +479,10 @@ static COMPV_ERROR_CODE itp_arrayToMat(const CompVPtrArray(U)& array, Mat& mat)
 static COMPV_ERROR_CODE itp_homography(const vector<Point2f>& srcPoints, const vector<Point2f>& dstPoints, Mat &H)
 {
 #if IMPL_HOMOGRAPHY == DECL_HOMOGRAPHY_OPENCV
+	uint64_t time0 = CompVTime::getNowMills();
 	H = findHomography(srcPoints, dstPoints, CV_RANSAC);
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("findHomography time(OpenCV): %llu", (time1 - time0));
 #else
 	// Homography 'double' is faster because EigenValues/EigenVectors computation converge faster (less residual error)
 	COMPV_ASSERT(srcPoints.size() == dstPoints.size());
@@ -486,7 +492,10 @@ static COMPV_ERROR_CODE itp_homography(const vector<Point2f>& srcPoints, const v
 	// CompV requires homogeneous coordinates -> convert from cartesian to homogeneous 2D
 	COMPV_CHECK_CODE_RETURN(itp_point2fToHomogeneous(srcPoints, src_));
 	COMPV_CHECK_CODE_RETURN(itp_point2fToHomogeneous(dstPoints, dst_));
+	uint64_t time0 = CompVTime::getNowMills();
 	COMPV_CHECK_CODE_RETURN(CompVHomography<TYPE_COMPV>::find(src_, dst_, h_));
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("findHomography time(CompV): %llu", (time1 - time0));
 	COMPV_CHECK_CODE_RETURN((itp_arrayToMat<TYPE_COMPV, TYPE_OPENCV>(h_, H)));
 #endif
 
@@ -559,7 +568,10 @@ static COMPV_ERROR_CODE itp_edges(const Mat& in, Mat& grad, int id = COMPV_SOBEL
 
 	COMPV_CHECK_CODE_RETURN(CompVImage::wrap(COMPV_PIXEL_FORMAT_GRAYSCALE, in.ptr(0), in.size().width, in.size().height, in.size().width, &image));
 	COMPV_CHECK_CODE_RETURN(CompVEdgeDete::newObj(id, &dete));
+	uint64_t time0 = CompVTime::getNowMills();
 	COMPV_CHECK_CODE_RETURN(dete->process(image, egdes));
+	uint64_t time1 = CompVTime::getNowMills();
+	COMPV_DEBUG_INFO("Edge time(CompV): %llu", (time1 - time0));
 
 	grad = Mat(Size((int)egdes->cols(), (int)egdes->rows()), CV_8U);
 	for (int j = 0; j < egdes->rows(); ++j) {

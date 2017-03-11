@@ -100,7 +100,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Projects\opencv\modules\core\include;C:\Projects\opencv\modules\highgui\include;C:\Projects\opencv\modules\imgproc\include;C:\Projects\opencv\modules\features2d\include;C:\Projects\opencv\modules\nonfree\include;C:\Projects\opencv\modules\calib3d\include;C:\Projects\opencv\modules\flann\include;C:\Projects\GitHub\compv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\opencv\modules\core\include;C:\Projects\opencv\modules\highgui\include;C:\Projects\opencv\modules\imgproc\include;C:\Projects\opencv\modules\features2d\include;C:\Projects\opencv\modules\nonfree\include;C:\Projects\opencv\modules\calib3d\include;C:\Projects\opencv\modules\flann\include;C:\Projects\GitHub\compv\deprecated\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -137,7 +137,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Projects\opencv\modules\core\include;C:\Projects\opencv\modules\highgui\include;C:\Projects\opencv\modules\imgproc\include;C:\Projects\opencv\modules\features2d\include;C:\Projects\opencv\modules\nonfree\include;C:\Projects\opencv\modules\calib3d\include;C:\Projects\opencv\modules\flann\include;C:\Projects\GitHub\compv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Projects\opencv\modules\core\include;C:\Projects\opencv\modules\highgui\include;C:\Projects\opencv\modules\imgproc\include;C:\Projects\opencv\modules\features2d\include;C:\Projects\opencv\modules\nonfree\include;C:\Projects\opencv\modules\calib3d\include;C:\Projects\opencv\modules\flann\include;C:\Projects\GitHub\compv\deprecated\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

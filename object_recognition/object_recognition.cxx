@@ -70,7 +70,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		COMPV_CHECK_CODE_ASSERT(itp_match(matcher, queryDescriptors, trainDescriptors, good_matches));
 		
 		// Draw matches
+		//uint64_t timeStart = CompVTime::getNowMills();
 		drawMatches(trainImage, trainKeypoints, /*queryImage*/queryFrame, queryKeypoints, good_matches, img_matches, Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+		//uint64_t timeEnd = CompVTime::getNowMills();
+		//COMPV_DEBUG_INFO("drawMatches=%llu", (timeEnd - timeStart));
 
 		if (good_matches.size() >= thresholdGoodMatches) {
 			putText(img_matches, "Object Recognized!", cvPoint(10, 50), FONT_HERSHEY_COMPLEX_SMALL, 2, cvScalar(0, 0, 250), 1, CV_AA);
